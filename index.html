@@ -1,0 +1,53 @@
+
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Fast App</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #0f172a, #2563eb);
+      color: white;
+      text-align: center;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .card {
+      padding: 30px;
+      margin: 20px;
+      border-radius: 20px;
+      background: rgba(255,255,255,0.12);
+      box-shadow: 0 8px 25px #0003;
+    }
+    button {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 10px;
+      background: #22c55e;
+      color: white;
+      font-size: 17px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Welcome to My Fast App!</h1>
+    <p>আমার প্রথম অ্যাপে তোমাকে স্বাগতম। ❤️</p>
+    <button onclick="welcome()">Click Here</button>
+    <p id="message"></p>
+  </div>
+
+  <script>
+    function welcome() {
+      document.getElementById("message").textContent =
+        "অভিনন্দন! তোমার অ্যাপ কাজ করছে! 🎉";
+    }
+  </script>
+</body>
+</html>
