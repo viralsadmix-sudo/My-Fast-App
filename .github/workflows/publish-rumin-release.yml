@@ -1,0 +1,37 @@
+name: Build and Publish Rumin AI APK
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/publish-rumin-release.yml"
+      - "app/**"
+      - "*.gradle.kts"
+      - "settings.gradle.kts"
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/gradle-build-action@v3
+        with:
+          gradle-version: "8.9"
+          arguments: assembleDebug
+      - name: Publish APK to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: rumin-ai-v1.0.0
+        run: |
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          test -f "$APK"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK#RuminAI.apk" --clobber
+          else
+            gh release create "$TAG" "$APK#RuminAI.apk" --title "Rumin AI v1.0.0" --notes "Rumin AI Android APK. Download RuminAI.apk below and install it on your Android phone."
+          fi
