@@ -201,7 +201,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             if (languageResult == TextToSpeech.LANG_MISSING_DATA || languageResult == TextToSpeech.LANG_NOT_SUPPORTED) {
                 tvStatus.text = "ফোনে বাংলা Text-to-speech voice ইনস্টল করুন"
             }
-            rumiSpeak("আসসালামু আলাইকুম! আমি রুমি। আমাকে যেকোনো প্রশ্ন করতে পারেন।")
+            rumiSpeak("আসসালামু আলাইকুম! আমি রুমি। আপনার সাথে কথা বলতে প্রস্তুত।")
         } else {
             tvStatus.text = "Text-to-speech চালু করা যায়নি"
         }
