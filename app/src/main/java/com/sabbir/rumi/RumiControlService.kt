@@ -52,8 +52,4 @@ class RumiControlService : AccessibilityService() {
         performGlobalAction(GLOBAL_ACTION_BACK)
     }
 
-    override fun onDestroy() {
-        if (instance === this) instance = null
-        super.onDestroy()
-    }
 }
