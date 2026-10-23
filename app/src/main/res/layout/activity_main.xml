@@ -7,43 +7,62 @@
     android:gravity="center"
     android:padding="24dp">
 
-    <!-- Rumi Title & Avatar Indicator -->
     <TextView
         android:id="@+id/tvAssistantName"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="RUMI AI"
+        android:text="RUMI AI 2.0"
         android:textColor="#FF2E93"
         android:textSize="32sp"
-        android:textStyle="bold"
-        android:letterSpacing="0.15" />
+        android:textStyle="bold" />
 
     <TextView
         android:id="@+id/tvStatus"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="আপনার পার্সোনাল ভয়েস অ্যাসিস্ট্যান্ট"
+        android:text="আপনার পার্সোনাল মেয়ে ভয়েস অ্যাসিস্ট্যান্ট"
         android:textColor="#8A8A9E"
         android:textSize="14sp"
         android:layout_marginTop="4dp"
-        android:layout_marginBottom="32dp" />
+        android:layout_marginBottom="20dp" />
 
-    <!-- AI Glowing Core Circle -->
-    <View
-        android:id="@+id/aiOrb"
-        android:layout_width="130dp"
-        android:layout_height="130dp"
-        android:background="@android:drawable/presence_online"
-        android:layout_marginBottom="32dp" />
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="20dp">
 
-    <!-- Conversation Display Box -->
+        <EditText
+            android:id="@+id/etApiKey"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:hint="এখানে Gemini API Key পেস্ট করুন"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#888888"
+            android:background="#1A1A2E"
+            android:padding="10dp"
+            android:textSize="13sp"
+            android:singleLine="true"
+            android:inputType="textPassword" />
+
+        <Button
+            android:id="@+id/btnSaveKey"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:text="Save"
+            android:backgroundTint="#00C853"
+            android:textColor="#FFFFFF"
+            android:layout_marginStart="8dp" />
+    </LinearLayout>
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:background="#1A1A2E"
         android:padding="20dp"
-        android:layout_marginBottom="32dp">
+        android:layout_marginBottom="24dp">
 
         <TextView
             android:id="@+id/tvUserCommand"
@@ -58,13 +77,12 @@
             android:id="@+id/tvRumiReply"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="রুমি: আসসালামু আলাইকুম! আমি রুমি। আমাকে যেকোনো কাজের নির্দেশ দিন।"
+            android:text="রুমি: আসসালামু আলাইকুম! আমি রুমি (ভার্সন ২.০)। আমাকে যেকোনো প্রশ্ন করুন!"
             android:textColor="#FFFFFF"
             android:textSize="18sp"
             android:textStyle="bold" />
     </LinearLayout>
 
-    <!-- Speak Button -->
     <Button
         android:id="@+id/btnSpeak"
         android:layout_width="match_parent"
@@ -74,16 +92,15 @@
         android:textStyle="bold"
         android:textColor="#FFFFFF"
         android:backgroundTint="#FF2E93"
-        android:layout_marginBottom="16dp" />
+        android:layout_marginBottom="12dp" />
 
-    <!-- Accessibility Settings Button -->
     <Button
-        android:id="@+id/btnPermission"
+        android:id="@+id/btnVoiceSettings"
         android:layout_width="match_parent"
         android:layout_height="48dp"
-        android:text="⚙️ ফোন কন্ট্রোল পারমিশন অন করুন"
-        android:textSize="14sp"
-        android:textColor="#CCCCCC"
+        android:text="👩 মেয়ে কণ্ঠ (Female Voice) সেটিংস ওপেন করুন"
+        android:textSize="13sp"
+        android:textColor="#FFFFFF"
         android:backgroundTint="#252542" />
 
 </LinearLayout>
