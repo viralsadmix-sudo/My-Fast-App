@@ -35,6 +35,9 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
         webView.settings.allowFileAccess = true
+        // Allow the bundled HTML UI to call the HTTPS AI APIs from its local asset origin.
+        @Suppress("DEPRECATION")
+        webView.settings.allowUniversalAccessFromFileURLs = true
         webView.settings.mediaPlaybackRequiresUserGesture = false
         webView.setBackgroundColor(android.graphics.Color.rgb(11, 7, 22))
         webView.webChromeClient = WebChromeClient()
