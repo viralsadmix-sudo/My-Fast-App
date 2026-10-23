@@ -11,7 +11,7 @@
         android:id="@+id/tvAssistantName"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="RUMI AI 2.0"
+        android:text="RUMI AI"
         android:textColor="#FF2E93"
         android:textSize="32sp"
         android:textStyle="bold" />
@@ -20,7 +20,7 @@
         android:id="@+id/tvStatus"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="আপনার পার্সোনাল মেয়ে ভয়েস অ্যাসিস্ট্যান্ট"
+        android:text="আপনার পার্সোনাল ভয়েস অ্যাসিস্ট্যান্ট"
         android:textColor="#8A8A9E"
         android:textSize="14sp"
         android:layout_marginTop="4dp"
@@ -77,7 +77,7 @@
             android:id="@+id/tvRumiReply"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="রুমি: আসসালামু আলাইকুম! আমি রুমি (ভার্সন ২.০)। আমাকে যেকোনো প্রশ্ন করুন!"
+            android:text="রুমি: আসসালামু আলাইকুম! আমি রুমি। আমাকে যেকোনো প্রশ্ন করুন!"
             android:textColor="#FFFFFF"
             android:textSize="18sp"
             android:textStyle="bold" />
