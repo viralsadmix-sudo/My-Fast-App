@@ -26,12 +26,12 @@ jobs:
       - name: Publish APK to GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: rumin-ai-v1.0.0
+          TAG: rumin-ai-v1.0.2
         run: |
           APK="app/build/outputs/apk/debug/app-debug.apk"
           test -f "$APK"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" "$APK#RuminAI.apk" --clobber
+            gh release upload "$TAG" "$APK#RuminAI-v1.0.2.apk" --clobber
           else
-            gh release create "$TAG" "$APK#RuminAI.apk" --title "Rumin AI v1.0.0" --notes "Rumin AI v1.0.1 with native Android text-to-speech for spoken assistant replies. Download RuminAI.apk and install it on your Android phone."
+            gh release create "$TAG" "$APK#RuminAI-v1.0.2.apk" --title "Rumin AI v1.0.2" --notes "Rumin AI v1.0.2 with continuous Bengali voice mode, streamed Bengali speech with offline fallback, and preserved app controls. Download the APK and install it on your Android phone."
           fi
