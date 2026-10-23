@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;background:transparent;overflow:hidden}
+body{display:flex;justify-content:center;align-items:center}
+.avatar-box{position:relative;width:min(190px,92vw);height:min(190px,92vw);border-radius:50%;background:linear-gradient(135deg,#FF2E93,#00F0FF);padding:5px;box-shadow:0 0 25px rgba(255,46,147,.6);animation:pulseGlow 2s infinite alternate ease-in-out}
+.avatar-inner{position:relative;width:100%;height:100%;border-radius:50%;overflow:hidden;background:radial-gradient(circle at 35% 25%,#39225d,#090912 70%);border:4px solid #090912;display:flex;align-items:center;justify-content:center}
+.avatar-img{width:100%;height:100%;border-radius:50%;object-fit:cover;animation:headMotion 3.5s ease-in-out infinite}
+.avatar-fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:78px;animation:headMotion 3.5s ease-in-out infinite}
+@keyframes pulseGlow{0%{box-shadow:0 0 15px rgba(255,46,147,.4);transform:scale(1)}100%{box-shadow:0 0 35px rgba(0,240,255,.8);transform:scale(1.03)}}
+@keyframes headMotion{0%,100%{transform:translateY(0) rotate(0)}25%{transform:translateY(-5px) rotate(-1.5deg)}75%{transform:translateY(3px) rotate(1.5deg)}}
+</style>
+</head>
+<body>
+<div class="avatar-box"><div class="avatar-inner">
+<div class="avatar-fallback" id="fallback" aria-label="Rumi Avatar">👩🏻‍💻</div>
+<img src="rumi_avatar.jpg" class="avatar-img" alt="Rumi Avatar" onerror="this.style.display='none'">
+</div></div>
+</body>
+</html>
