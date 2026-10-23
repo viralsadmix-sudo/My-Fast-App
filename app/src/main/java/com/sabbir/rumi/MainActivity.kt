@@ -199,11 +199,12 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             var conn: HttpURLConnection? = null
             try {
                 // বর্তমান সচল Gemini Flash মডেল
-                val url = URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=" +
-                    java.net.URLEncoder.encode(apiKey, "UTF-8"))
+                val url = URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent")
                 conn = (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
                     setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+                    // Google AI Studio-এর AQ. authorization API key API-key header দিয়ে পাঠাতে হয়
+                    setRequestProperty("x-goog-api-key", apiKey)
                     connectTimeout = 20000
                     readTimeout = 30000
                     doOutput = true
