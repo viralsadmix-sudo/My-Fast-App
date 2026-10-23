@@ -183,39 +183,84 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         askRumiAI(raw)
     }
 
-    private fun askRumiAI(question: String) {
-        val key = getSharedPreferences("RumiPrefs", Context.MODE_PRIVATE).getString("API_KEY", "").orEmpty()
-        if (key.isBlank()) { rumiSpeak("দয়া করে আগে Gemini API Key সেভ করুন।"); return }
+    private fun askRumiAI(userQuestion: String) {
+        val prefs = getSharedPreferences("RumiPrefs", Context.MODE_PRIVATE)
+        val savedKey = prefs.getString("API_KEY", "") ?: ""
+        val currentBoxKey = etApiKey.text.toString().replace("\\s".toRegex(), "").trim()
+        val apiKey = if (currentBoxKey.isNotEmpty()) currentBoxKey else savedKey
+
+        if (apiKey.isBlank()) {
+            rumiSpeak("দয়া করে আপনার জেমিনি এপিআই কি দিন।")
+            return
+        }
+
         tvStatus.text = "রুমি উত্তর তৈরি করছে..."
         thread {
             var conn: HttpURLConnection? = null
             try {
-                val endpoint = URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=" + java.net.URLEncoder.encode(key, "UTF-8"))
-                conn = (endpoint.openConnection() as HttpURLConnection).apply {
+                // বর্তমান সচল Gemini Flash মডেল
+                val url = URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=" +
+                    java.net.URLEncoder.encode(apiKey, "UTF-8"))
+                conn = (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
                     setRequestProperty("Content-Type", "application/json; charset=UTF-8")
-                    connectTimeout = 20000; readTimeout = 20000; doOutput = true
+                    connectTimeout = 20000
+                    readTimeout = 30000
+                    doOutput = true
                 }
-                val prompt = "তোমার নাম রুমি। তুমি বাংলা ভাষায় কথা বলা AI সহকারী। সহজ, স্বাভাবিক বাংলায় ১-৩ বাক্যে উত্তর দাও। ব্যবহারকারীর কথা: $question"
-                val body = JSONObject().put("contents", JSONArray().put(JSONObject().put("parts", JSONArray().put(JSONObject().put("text", prompt)))))
-                conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
+
+                val prompt = "তোমার নাম রুমি। তুমি এই অ্যাপের অ্যানিমেটেড এভাটার এবং মিষ্টি মেয়ে ভয়েস অ্যাসিস্ট্যান্ট। নিচের কথার উত্তর খুব সহজ ও সুন্দর বাংলায় ১ থেকে ২ বাক্যে দাও। কোনো স্টার চিহ্ন দিবে না। প্রশ্ন: $userQuestion"
+                val requestBody = JSONObject().put(
+                    "contents",
+                    JSONArray().put(
+                        JSONObject().put(
+                            "parts",
+                            JSONArray().put(JSONObject().put("text", prompt))
+                        )
+                    )
+                )
+
+                conn.outputStream.use { output ->
+                    output.write(requestBody.toString().toByteArray(Charsets.UTF_8))
+                }
+
                 val code = conn.responseCode
                 val stream = if (code in 200..299) conn.inputStream else conn.errorStream
-                val response = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+                val responseText = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+
                 if (code in 200..299) {
-                    val json = JSONObject(response)
-                    val candidates = json.optJSONArray("candidates")
-                    val reply = candidates?.optJSONObject(0)?.optJSONObject("content")?.optJSONArray("parts")
-                        ?.let { parts -> (0 until parts.length()).mapNotNull { parts.optJSONObject(it)?.optString("text") }.joinToString(" ") }
-                        ?.replace(Regex("[*#]"), "")?.trim().orEmpty()
-                    if (reply.isBlank()) rumiSpeak("দুঃখিত, এবার উত্তর তৈরি করতে পারিনি।") else rumiSpeak(reply)
+                    val jsonResponse = JSONObject(responseText)
+                    val candidates = jsonResponse.optJSONArray("candidates")
+                    val parts = candidates?.optJSONObject(0)?.optJSONObject("content")?.optJSONArray("parts")
+                    val aiReply = parts?.let { array ->
+                        (0 until array.length()).mapNotNull { index ->
+                            array.optJSONObject(index)?.optString("text")?.takeIf { it.isNotBlank() }
+                        }.joinToString(" ")
+                    }?.replace("*", "")?.replace("#", "")?.replace("\\n", " ")?.trim().orEmpty()
+
+                    if (aiReply.isNotBlank()) {
+                        rumiSpeak(aiReply)
+                    } else {
+                        rumiSpeak("দুঃখিত, এবার উত্তর তৈরি করতে পারিনি। আবার বলুন।")
+                    }
                 } else {
-                    val message = try { JSONObject(response).optJSONObject("error")?.optString("message") } catch (_: Exception) { null }
-                    rumiSpeak("Gemini API সমস্যা ($code): " + (message?.take(180) ?: "API Key বা মডেল যাচাই করুন"))
+                    val message = try {
+                        JSONObject(responseText).optJSONObject("error")?.optString("message")
+                    } catch (_: Exception) { null }
+                    val safeMessage = message?.takeIf { it.isNotBlank() }?.take(180)
+                    runOnUiThread {
+                        tvRumiReply.text = "Gemini API Error ($code): ${safeMessage ?: "API Key বা মডেল যাচাই করুন"}"
+                    }
+                    rumiSpeak(
+                        if (code == 401 || code == 403) "জেমিনি এপিআই কি সঠিক নয় অথবা অনুমতি পাওয়া যায়নি।"
+                        else "জেমিনি সার্ভারে সমস্যা হয়েছে। একটু পরে আবার চেষ্টা করুন।"
+                    )
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 rumiSpeak("ইন্টারনেট সংযোগে সমস্যা হয়েছে।")
-            } finally { conn?.disconnect() }
+            } finally {
+                conn?.disconnect()
+            }
         }
     }
 
