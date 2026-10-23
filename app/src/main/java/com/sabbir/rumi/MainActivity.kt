@@ -2,6 +2,11 @@ package com.sabbir.rumi
 
 import android.Manifest
 import android.app.SearchManager
+import android.media.AudioAttributes
+import android.media.MediaPlayer
+import android.os.Handler
+import android.os.Looper
+import android.provider.AlarmClock
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -12,6 +17,7 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
@@ -35,6 +41,11 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private lateinit var tvRumiReply: TextView
     private lateinit var tvStatus: TextView
     private lateinit var etApiKey: EditText
+    private lateinit var btnSpeak: Button
+    private var mediaPlayer: MediaPlayer? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var isContinuousMode = false
+    private var isRumiSpeaking = false
 
     private var pendingAction: (() -> Unit)? = null
     private var awaitingConfirmation = false
@@ -49,7 +60,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         etApiKey = findViewById(R.id.etApiKey)
 
         val btnSaveKey: Button = findViewById(R.id.btnSaveKey)
-        val btnSpeak: Button = findViewById(R.id.btnSpeak)
+        btnSpeak = findViewById(R.id.btnSpeak)
         val btnVoiceSettings: Button = findViewById(R.id.btnVoiceSettings)
 
         // API Key পুরোনো ও নতুন preference দুটো থেকেই পড়া; নতুন জায়গায় সংরক্ষণ
@@ -102,6 +113,11 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             }
             override fun onError(error: Int) {
                 tvStatus.text = "আবার বলুন"
+                if (isContinuousMode && !isRumiSpeaking) {
+                    mainHandler.postDelayed({
+                        if (isContinuousMode && !isRumiSpeaking) startListening()
+                    }, 650)
+                }
             }
             override fun onResults(results: Bundle?) {
                 val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
@@ -115,7 +131,17 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             override fun onEvent(eventType: Int, params: Bundle?) {}
         })
 
-        btnSpeak.setOnClickListener { startListening() }
+        btnSpeak.text = "📞 রুমির সাথে লাইভ কথা শুরু করুন"
+        btnSpeak.setOnClickListener {
+            if (isContinuousMode) {
+                stopContinuousMode()
+            } else {
+                isContinuousMode = true
+                btnSpeak.text = "🛑 কথা বলা বন্ধ করুন (Stop)"
+                btnSpeak.setBackgroundColor(0xFFD50000.toInt())
+                startListening()
+            }
+        }
     }
 
     override fun onInit(status: Int) {
@@ -131,6 +157,17 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
             tts.setPitch(1.35f)
             tts.setSpeechRate(0.95f)
+            tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                override fun onStart(utteranceId: String?) { isRumiSpeaking = true }
+                override fun onDone(utteranceId: String?) {
+                    isRumiSpeaking = false
+                    resumeListeningIfNeeded()
+                }
+                override fun onError(utteranceId: String?) {
+                    isRumiSpeaking = false
+                    resumeListeningIfNeeded()
+                }
+            })
 
             if (languageResult == TextToSpeech.LANG_MISSING_DATA || languageResult == TextToSpeech.LANG_NOT_SUPPORTED) {
                 tvStatus.text = "ফোনে বাংলা Text-to-speech voice ইনস্টল করুন"
@@ -142,6 +179,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun startListening() {
+        if (!isContinuousMode) return
+        if (isRumiSpeaking) return
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
             rumiSpeak("এই ফোনে Speech Recognition পাওয়া যাচ্ছে না।")
             return
@@ -150,7 +189,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), 100)
             return
         }
-        if (::tts.isInitialized) tts.stop()
+        try { speechRecognizer.cancel() } catch (_: Exception) {}
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, "bn-BD")
@@ -165,16 +204,77 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun rumiSpeak(text: String) {
-        runOnUiThread {
-            tvStatus.text = "আপনার পার্সোনাল ভয়েস অ্যাসিস্ট্যান্ট"
+        mainHandler.post {
+            isRumiSpeaking = true
+            try { speechRecognizer.cancel() } catch (_: Exception) {}
+            tvStatus.text = "🗣️ রুমি কথা বলছে..."
             tvRumiReply.text = "রুমি: $text"
-            if (::tts.isInitialized) {
-                tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "RUMI_ID")
+        }
+        thread(name = "RumiVoiceStream") {
+            try {
+                val safeText = if (text.length > 190) text.substring(0, 190) else text
+                val encoded = URLEncoder.encode(safeText, "UTF-8")
+                val audioUrl = "https://translate.google.com/translate_tts?ie=UTF-8&q=$encoded&tl=bn&client=tw-ob"
+                mainHandler.post {
+                    try {
+                        mediaPlayer?.release()
+                        mediaPlayer = MediaPlayer().apply {
+                            setAudioAttributes(
+                                AudioAttributes.Builder()
+                                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                                    .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
+                                    .build()
+                            )
+                            setDataSource(audioUrl)
+                            setOnPreparedListener { it.start() }
+                            setOnCompletionListener {
+                                isRumiSpeaking = false
+                                resumeListeningIfNeeded()
+                            }
+                            setOnErrorListener { _, _, _ ->
+                                fallbackOfflineSpeak(text)
+                                true
+                            }
+                            prepareAsync()
+                        }
+                    } catch (_: Exception) {
+                        fallbackOfflineSpeak(text)
+                    }
+                }
+            } catch (_: Exception) {
+                fallbackOfflineSpeak(text)
             }
         }
     }
 
+    private fun fallbackOfflineSpeak(text: String) {
+        mainHandler.post {
+            if (::tts.isInitialized) tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "RUMI_ID")
+        }
+    }
+
+    private fun resumeListeningIfNeeded() {
+        mainHandler.postDelayed({
+            if (isContinuousMode && !isRumiSpeaking) startListening()
+        }, 450)
+    }
+
+    private fun stopContinuousMode() {
+        isContinuousMode = false
+        isRumiSpeaking = false
+        btnSpeak.text = "📞 রুমির সাথে লাইভ কথা শুরু করুন"
+        btnSpeak.setBackgroundColor(0xFFFF2E93.toInt())
+        tvStatus.text = "লাইভ কথা বন্ধ আছে"
+        try { speechRecognizer.cancel() } catch (_: Exception) {}
+        try { mediaPlayer?.stop() } catch (_: Exception) {}
+        if (::tts.isInitialized) tts.stop()
+    }
+
     private fun processCommand(command: String) {
+        if (command.contains("কথা বন্ধ কর") || command.contains("থামো") || command.contains("চুপ কর")) {
+            stopContinuousMode()
+            return
+        }
         if (awaitingConfirmation) {
             if (command.contains("হ্যাঁ") || command.contains("হা") || command.contains("করো") || command.contains("ওকে") || command.contains("yes")) {
                 awaitingConfirmation = false
@@ -239,6 +339,14 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 val service = RumiControlService.instance
                 if (service != null) service.goHome()
                 else rumiSpeak("এই কাজের জন্য আগে রুমির অ্যাক্সেসিবিলিটি পারমিশন অন করুন।")
+            }
+        } else if (command.contains("কল দাও") || command.contains("ডায়াল")) {
+            askPermission("আমি কি ফোনের ডায়ালপ্যাড ওপেন করবো?") {
+                startActivity(Intent(Intent.ACTION_DIAL))
+            }
+        } else if (command.contains("অ্যালার্ম")) {
+            askPermission("আমি কি অ্যালার্ম সেটিং ওপেন করবো?") {
+                startActivity(Intent(AlarmClock.ACTION_SHOW_ALARMS))
             }
         } else if (command.contains("তোমার নাম কি") || command.contains("তুমি কে") || command.contains("তোমার নাম কী")) {
             rumiSpeak("আমার নাম রুমি। আমি আপনার পার্সোনাল ভয়েস অ্যাসিস্ট্যান্ট।")
@@ -335,6 +443,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     override fun onDestroy() {
+        isContinuousMode = false
+        mediaPlayer?.release()
         if (::tts.isInitialized) {
             tts.stop()
             tts.shutdown()
