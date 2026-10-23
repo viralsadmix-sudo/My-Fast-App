@@ -1,55 +1,117 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="#080812"
-    android:gravity="center"
+    android:background="#090912"
     android:padding="20dp">
 
-    <TextView
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:id="@+id/headerLayout"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="RUMI AI 3D"
-        android:textColor="#FF2E93"
-        android:textSize="28sp"
-        android:textStyle="bold"
-        android:letterSpacing="0.2" />
-
-    <TextView
-        android:id="@+id/tvStatus"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="অফলাইন মোড"
-        android:textColor="#00F0FF"
-        android:textSize="13sp"
-        android:layout_marginTop="4dp"
-        android:layout_marginBottom="24dp" />
-
-    <FrameLayout
-        android:layout_width="160dp"
-        android:layout_height="160dp"
+        android:orientation="vertical"
         android:gravity="center"
-        android:layout_marginBottom="24dp">
+        android:layout_alignParentTop="true"
+        android:layout_marginTop="8dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="RUMI AI ULTIMATE"
+            android:textColor="#FF2E93"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.1" />
+
+        <TextView
+            android:id="@+id/tvStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="আপনার থ্রিডি এআই সহচর প্রস্তুত"
+            android:textColor="#8A8A9E"
+            android:textSize="13sp"
+            android:layout_marginTop="4dp" />
+    </LinearLayout>
+
+    <RelativeLayout
+        android:id="@+id/avatarContainer"
+        android:layout_width="180dp"
+        android:layout_height="180dp"
+        android:layout_centerInParent="true">
 
         <View
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:background="@android:drawable/presence_online" />
 
-        <View
-            android:id="@+id/aiCoreVisual"
-            android:layout_width="120dp"
-            android:layout_height="120dp"
-            android:layout_gravity="center"
-            android:background="@android:drawable/star_big_on" />
-    </FrameLayout>
+        <ImageView
+            android:id="@+id/imgRumiAvatar"
+            android:layout_width="168dp"
+            android:layout_height="168dp"
+            android:layout_centerInParent="true"
+            android:scaleType="centerCrop"
+            android:background="@android:color/black"
+            android:contentDescription="Rumi AI avatar" />
+    </RelativeLayout>
+
+    <Button
+        android:id="@+id/btnVoiceSettings"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:layout_alignParentBottom="true"
+        android:text="👩 মেয়ে কণ্ঠ সেটিংস"
+        android:textSize="12sp"
+        android:textColor="#CCCCCC"
+        android:backgroundTint="#1A1A32" />
+
+    <Button
+        android:id="@+id/btnSpeak"
+        android:layout_width="match_parent"
+        android:layout_height="55dp"
+        android:layout_above="@id/btnVoiceSettings"
+        android:layout_marginBottom="10dp"
+        android:text="📞 রুমির সাথে লাইভ কথা শুরু করুন"
+        android:textSize="15sp"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"
+        android:backgroundTint="#FF2E93" />
 
     <LinearLayout
+        android:id="@+id/chatBox"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_above="@id/btnSpeak"
+        android:orientation="vertical"
+        android:background="#16162B"
+        android:padding="14dp"
+        android:layout_marginBottom="12dp">
+
+        <TextView
+            android:id="@+id/tvUserCommand"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="আপনি: বলুন..."
+            android:textColor="#00F0FF"
+            android:textSize="14sp"
+            android:layout_marginBottom="6dp" />
+
+        <TextView
+            android:id="@+id/tvRumiReply"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="রুমি: আসসালামু আলাইকুম!"
+            android:textColor="#FFFFFF"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/apiKeyLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_above="@id/chatBox"
         android:orientation="horizontal"
-        android:layout_marginBottom="16dp">
+        android:layout_marginBottom="12dp">
 
         <EditText
             android:id="@+id/etApiKey"
@@ -59,8 +121,8 @@
             android:hint="Gemini API Key দিন (AIza...)"
             android:textColor="#FFFFFF"
             android:textColorHint="#666688"
-            android:background="#151528"
-            android:padding="10dp"
+            android:background="#1A1A2E"
+            android:paddingHorizontal="12dp"
             android:textSize="12sp"
             android:singleLine="true"
             android:inputType="textPassword" />
@@ -72,54 +134,7 @@
             android:text="Save"
             android:backgroundTint="#00C853"
             android:textColor="#FFFFFF"
-            android:layout_marginStart="8dp" />
+            android:layout_marginStart="6dp" />
     </LinearLayout>
 
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:background="#121222"
-        android:padding="16dp"
-        android:layout_marginBottom="20dp">
-
-        <TextView
-            android:id="@+id/tvUserCommand"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="আপনি: কিছু বলুন..."
-            android:textColor="#00F0FF"
-            android:textSize="14sp"
-            android:layout_marginBottom="8dp" />
-
-        <TextView
-            android:id="@+id/tvRumiReply"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="রুমি: আসসালামু আলাইকুম! আমি আপনার এডিটেড রুমি।"
-            android:textColor="#FFFFFF"
-            android:textSize="16sp"
-            android:textStyle="bold" />
-    </LinearLayout>
-
-    <Button
-        android:id="@+id/btnSpeak"
-        android:layout_width="match_parent"
-        android:layout_height="55dp"
-        android:text="📞 রুমির সাথে লাইভ কথা শুরু করুন"
-        android:textSize="16sp"
-        android:textStyle="bold"
-        android:textColor="#FFFFFF"
-        android:backgroundTint="#FF2E93"
-        android:layout_marginBottom="10dp" />
-
-    <Button
-        android:id="@+id/btnVoiceSettings"
-        android:layout_width="match_parent"
-        android:layout_height="40dp"
-        android:text="👩 মেয়ে কণ্ঠ সেটিংস"
-        android:textSize="12sp"
-        android:textColor="#CCCCCC"
-        android:backgroundTint="#1A1A32" />
-
-</LinearLayout>
+</RelativeLayout>
