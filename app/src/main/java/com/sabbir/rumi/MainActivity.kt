@@ -6,122 +6,129 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
-import android.webkit.JavascriptInterface
-import android.webkit.WebChromeClient
 import android.webkit.WebView
-import android.webkit.WebViewClient
+import android.widget.Button
+import android.widget.EditText
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
+import org.json.JSONArray
 import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
 import java.util.Locale
+import kotlin.concurrent.thread
 
 class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
-    private lateinit var webView: WebView
     private lateinit var tts: TextToSpeech
     private var speechRecognizer: SpeechRecognizer? = null
-    private var continuousVoice = false
-    private var ttsReady = false
+    private lateinit var tvUserCommand: TextView
+    private lateinit var tvRumiReply: TextView
+    private lateinit var tvStatus: TextView
+    private lateinit var etApiKey: EditText
+    private lateinit var btnSpeak: Button
+    private lateinit var webViewAvatar: WebView
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var isContinuousMode = false
+    @Volatile private var isRumiSpeaking = false
+    @Volatile private var ttsReady = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        webView = findViewById(R.id.webView)
-        webView.settings.javaScriptEnabled = true
-        webView.settings.domStorageEnabled = true
-        webView.settings.allowFileAccess = true
-        // Allow the bundled HTML UI to call the HTTPS AI APIs from its local asset origin.
-        webView.settings.allowUniversalAccessFromFileURLs = true
-        webView.settings.mediaPlaybackRequiresUserGesture = false
-        webView.setBackgroundColor(android.graphics.Color.rgb(11, 7, 22))
-        webView.webChromeClient = WebChromeClient()
-        webView.webViewClient = object : WebViewClient() {
-            override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
-                if (url.isNullOrBlank()) return false
-                if (url.startsWith("file:///android_asset/")) return false
-                return try {
-                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-                    true
-                } catch (_: Exception) { false }
-            }
+        tvUserCommand = findViewById(R.id.tvUserCommand)
+        tvRumiReply = findViewById(R.id.tvRumiReply)
+        tvStatus = findViewById(R.id.tvStatus)
+        etApiKey = findViewById(R.id.etApiKey)
+        val btnSaveKey: Button = findViewById(R.id.btnSaveKey)
+        btnSpeak = findViewById(R.id.btnSpeak)
+        webViewAvatar = findViewById(R.id.webViewAvatar)
+        webViewAvatar.settings.javaScriptEnabled = true
+        webViewAvatar.settings.allowFileAccess = true
+        webViewAvatar.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+        webViewAvatar.loadUrl("file:///android_asset/rumi_animation.html")
+
+        val prefs = getSharedPreferences("RumiPrefs", Context.MODE_PRIVATE)
+        etApiKey.setText(prefs.getString("API_KEY", ""))
+        btnSaveKey.setOnClickListener {
+            val key = etApiKey.text.toString().trim()
+            if (key.isBlank()) { etApiKey.error = "Gemini API Key দিন"; return@setOnClickListener }
+            prefs.edit().putString("API_KEY", key).apply()
+            Toast.makeText(this, "API Key সেভ হয়েছে", Toast.LENGTH_SHORT).show()
+            rumiSpeak("ধন্যবাদ! API Key সেভ হয়েছে।")
         }
-        webView.addJavascriptInterface(AndroidTtsBridge(), "AndroidTTS")
-        webView.addJavascriptInterface(AndroidVoiceBridge(), "AndroidVoice")
-        webView.addJavascriptInterface(AndroidActionsBridge(), "AndroidActions")
-        webView.loadUrl("file:///android_asset/index.html")
-        tts = TextToSpeech(this, this, "com.google.android.tts")
+        tts = TextToSpeech(this, this)
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), 100)
+        }
+        setupSpeechRecognizer()
+        btnSpeak.setOnClickListener {
+            if (isContinuousMode) stopContinuousMode() else {
+                isContinuousMode = true
+                btnSpeak.text = "🛑 কথা বলা বন্ধ করুন"
+                btnSpeak.backgroundTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.rgb(255, 23, 68))
+                startListening()
+            }
         }
     }
 
     override fun onInit(status: Int) {
         ttsReady = status == TextToSpeech.SUCCESS
-        if (ttsReady) {
-            val languageResult = tts.setLanguage(Locale("bn", "BD"))
-            tts.setPitch(1.18f)
-            tts.setSpeechRate(0.94f)
-            tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-                override fun onStart(utteranceId: String?) {}
-                override fun onDone(utteranceId: String?) {
-                    runOnUiThread {
-                        webView.evaluateJavascript("window.onAndroidSpeechDone && window.onAndroidSpeechDone()", null)
-                    }
-                }
-                override fun onError(utteranceId: String?) {
-                    runOnUiThread {
-                        webView.evaluateJavascript("window.onAndroidSpeechDone && window.onAndroidSpeechDone()", null)
-                    }
-                }
-            })
-            if (languageResult == TextToSpeech.LANG_MISSING_DATA || languageResult == TextToSpeech.LANG_NOT_SUPPORTED) {
-                Toast.makeText(this, "বাংলা TTS voice ইনস্টল করুন", Toast.LENGTH_LONG).show()
-            }
+        if (!ttsReady) { tvStatus.text = "Text-to-Speech চালু হয়নি"; return }
+        val lang = tts.setLanguage(Locale("bn", "BD"))
+        if (lang == TextToSpeech.LANG_MISSING_DATA || lang == TextToSpeech.LANG_NOT_SUPPORTED) {
+            tts.setLanguage(Locale("bn", "IN"))
+            tvStatus.text = "বাংলা ভয়েসের জন্য Google Speech Services-এ Bengali voice ইনস্টল করুন"
         }
+        tts.setPitch(1.22f)
+        tts.setSpeechRate(0.94f)
+        tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+            override fun onStart(utteranceId: String?) { isRumiSpeaking = true }
+            override fun onDone(utteranceId: String?) { isRumiSpeaking = false; resumeListening() }
+            override fun onError(utteranceId: String?) { isRumiSpeaking = false; resumeListening() }
+        })
+        rumiSpeak("আসসালামু আলাইকুম! আমি রুমি। বলুন, আমি শুনছি।")
     }
 
-    private fun startNativeListening() {
+    private fun setupSpeechRecognizer() {
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) { tvStatus.text = "এই ফোনে Speech Recognition পাওয়া যায়নি"; return }
+        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
+        speechRecognizer?.setRecognitionListener(object : RecognitionListener {
+            override fun onReadyForSpeech(params: Bundle?) { if (isContinuousMode) tvStatus.text = "🟢 রুমি শুনছে... বলুন" }
+            override fun onBeginningOfSpeech() {}
+            override fun onRmsChanged(rmsdB: Float) {}
+            override fun onBufferReceived(buffer: ByteArray?) {}
+            override fun onEndOfSpeech() { if (isContinuousMode) tvStatus.text = "রুমি চিন্তা করছে..." }
+            override fun onError(error: Int) {
+                if (isContinuousMode && !isRumiSpeaking) mainHandler.postDelayed({ startListening() }, 700)
+                else if (!isContinuousMode) tvStatus.text = "ভয়েস শোনা যায়নি, আবার চেষ্টা করুন"
+            }
+            override fun onResults(results: Bundle?) {
+                val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
+                if (!text.isNullOrBlank()) {
+                    tvUserCommand.text = "আপনি: $text"
+                    processCommand(text)
+                } else if (isContinuousMode) resumeListening()
+            }
+            override fun onPartialResults(partialResults: Bundle?) {}
+            override fun onEvent(eventType: Int, params: Bundle?) {}
+        })
+    }
+
+    private fun startListening() {
+        if (!isContinuousMode || isRumiSpeaking) return
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), 100)
-            return
-        }
-        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
-            sendSpeechError("এই ফোনে Speech Recognition পাওয়া যায়নি")
-            return
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), 100); return
         }
         try {
-            if (speechRecognizer == null) {
-                speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
-                speechRecognizer?.setRecognitionListener(object : RecognitionListener {
-                    override fun onReadyForSpeech(params: Bundle?) = setStatus("শুনছি… বলুন")
-                    override fun onBeginningOfSpeech() {}
-                    override fun onRmsChanged(rmsdB: Float) {}
-                    override fun onBufferReceived(buffer: ByteArray?) {}
-                    override fun onEndOfSpeech() = setStatus("উত্তর তৈরি হচ্ছে…")
-                    override fun onError(error: Int) {
-                        if (continuousVoice) {
-                            sendSpeechError("আবার বলুন")
-                            webView.postDelayed({ if (continuousVoice) startNativeListening() }, 700)
-                        } else sendSpeechError("ভয়েস শোনা যায়নি, আবার চেষ্টা করুন")
-                    }
-                    override fun onResults(results: Bundle?) {
-                        val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
-                        if (!text.isNullOrBlank()) {
-                            val quoted = JSONObject.quote(text)
-                            webView.evaluateJavascript("window.onAndroidSpeechResult && window.onAndroidSpeechResult($quoted)", null)
-                        } else if (continuousVoice) {
-                            webView.postDelayed({ startNativeListening() }, 400)
-                        }
-                    }
-                    override fun onPartialResults(partialResults: Bundle?) {}
-                    override fun onEvent(eventType: Int, params: Bundle?) {}
-                })
-            }
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, "bn-BD")
@@ -129,93 +136,92 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
             }
             speechRecognizer?.startListening(intent)
-        } catch (_: Exception) {
-            sendSpeechError("মাইক্রোফোন চালু করা যায়নি")
+        } catch (_: Exception) { tvStatus.text = "মাইক্রোফোন চালু করা যায়নি" }
+    }
+
+    private fun resumeListening() {
+        mainHandler.postDelayed({ if (isContinuousMode && !isRumiSpeaking) startListening() }, 500)
+    }
+
+    private fun stopContinuousMode() {
+        isContinuousMode = false
+        isRumiSpeaking = false
+        try { speechRecognizer?.cancel(); tts.stop() } catch (_: Exception) {}
+        btnSpeak.text = "📞 রুমির সাথে লাইভ কথা শুরু করুন"
+        btnSpeak.backgroundTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.rgb(255, 46, 147))
+        tvStatus.text = "লাইভ কথা বন্ধ আছে"
+    }
+
+    private fun rumiSpeak(text: String) {
+        runOnUiThread {
+            tvRumiReply.text = "রুমি: $text"
+            tvStatus.text = "🗣️ রুমি কথা বলছে..."
+            if (!ttsReady) { tvStatus.text = "ভয়েস ইঞ্জিন প্রস্তুত হচ্ছে"; return@runOnUiThread }
+            isRumiSpeaking = true
+            try { speechRecognizer?.cancel() } catch (_: Exception) {}
+            tts.speak(text.take(3500), TextToSpeech.QUEUE_FLUSH, null, "RUMI_SPEAK_ID")
         }
     }
 
-    private fun setStatus(message: String) {
-        val quoted = JSONObject.quote(message)
-        runOnUiThread { webView.evaluateJavascript("window.setRumiStatus && window.setRumiStatus($quoted)", null) }
-    }
-
-    private fun sendSpeechError(message: String) {
-        val quoted = JSONObject.quote(message)
-        runOnUiThread { webView.evaluateJavascript("window.onAndroidSpeechError && window.onAndroidSpeechError($quoted)", null) }
-    }
-
-    inner class AndroidTtsBridge {
-        @JavascriptInterface
-        fun speak(text: String) {
-            runOnUiThread {
-                if (ttsReady) tts.speak(text.take(3500), TextToSpeech.QUEUE_FLUSH, null, "RUMI_WEB_TTS")
-                else sendSpeechError("Text-to-Speech প্রস্তুত নয়")
-            }
+    private fun processCommand(raw: String) {
+        val command = raw.lowercase(Locale("bn", "BD"))
+        if (command.contains("কথা বন্ধ কর") || command.contains("থামো")) { stopContinuousMode(); return }
+        if (command.contains("ফেসবুক") && listOf("চালাও", "ওপেন", "খোলো").any { command.contains(it) }) {
+            rumiSpeak("আমি ফেসবুক খুলছি।")
+            mainHandler.postDelayed({
+                val launch = packageManager.getLaunchIntentForPackage("com.facebook.katana")
+                try { if (launch != null) startActivity(launch) else startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://m.facebook.com"))) } catch (_: Exception) {}
+            }, 900); return
         }
+        if (command.contains("ইউটিউব") && listOf("চালাও", "ওপেন", "খোলো").any { command.contains(it) }) {
+            rumiSpeak("আমি ইউটিউব খুলছি।")
+            mainHandler.postDelayed({
+                val launch = packageManager.getLaunchIntentForPackage("com.google.android.youtube")
+                try { if (launch != null) startActivity(launch) else startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://m.youtube.com"))) } catch (_: Exception) {}
+            }, 900); return
+        }
+        askRumiAI(raw)
     }
 
-    inner class AndroidVoiceBridge {
-        @JavascriptInterface
-        fun listen() {
-            runOnUiThread {
-                continuousVoice = true
-                startNativeListening()
-            }
-        }
-        @JavascriptInterface
-        fun stop() {
-            runOnUiThread {
-                continuousVoice = false
-                try { speechRecognizer?.cancel() } catch (_: Exception) {}
-                setStatus("ভয়েস বন্ধ আছে")
-            }
-        }
-    }
-
-    inner class AndroidActionsBridge {
-        @JavascriptInterface
-        fun open(action: String) {
-            runOnUiThread {
-                try {
-                    when (action.lowercase(Locale.ROOT)) {
-                        "facebook" -> openApp("com.facebook.katana", "https://m.facebook.com")
-                        "youtube" -> openApp("com.google.android.youtube", "https://m.youtube.com")
-                        "google" -> startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com")))
-                        "chatgpt" -> startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://chatgpt.com")))
-                        "dial" -> startActivity(Intent(Intent.ACTION_DIAL))
-                        "alarm" -> startActivity(Intent(android.provider.AlarmClock.ACTION_SHOW_ALARMS))
-                        else -> Toast.makeText(this@MainActivity, "এই অপশনটি পাওয়া যায়নি", Toast.LENGTH_SHORT).show()
-                    }
-                } catch (_: Exception) {
-                    Toast.makeText(this@MainActivity, "অপশনটি চালু করা যায়নি", Toast.LENGTH_SHORT).show()
+    private fun askRumiAI(question: String) {
+        val key = getSharedPreferences("RumiPrefs", Context.MODE_PRIVATE).getString("API_KEY", "").orEmpty()
+        if (key.isBlank()) { rumiSpeak("দয়া করে আগে Gemini API Key সেভ করুন।"); return }
+        tvStatus.text = "রুমি উত্তর তৈরি করছে..."
+        thread {
+            var conn: HttpURLConnection? = null
+            try {
+                val endpoint = URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + java.net.URLEncoder.encode(key, "UTF-8"))
+                conn = (endpoint.openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"
+                    setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+                    connectTimeout = 20000; readTimeout = 20000; doOutput = true
                 }
-            }
+                val prompt = "তোমার নাম রুমি। তুমি বাংলা ভাষায় কথা বলা AI সহকারী। সহজ, স্বাভাবিক বাংলায় ১-৩ বাক্যে উত্তর দাও। ব্যবহারকারীর কথা: $question"
+                val body = JSONObject().put("contents", JSONArray().put(JSONObject().put("parts", JSONArray().put(JSONObject().put("text", prompt)))))
+                conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
+                val code = conn.responseCode
+                val stream = if (code in 200..299) conn.inputStream else conn.errorStream
+                val response = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+                if (code in 200..299) {
+                    val json = JSONObject(response)
+                    val candidates = json.optJSONArray("candidates")
+                    val reply = candidates?.optJSONObject(0)?.optJSONObject("content")?.optJSONArray("parts")
+                        ?.let { parts -> (0 until parts.length()).mapNotNull { parts.optJSONObject(it)?.optString("text") }.joinToString(" ") }
+                        ?.replace(Regex("[*#]"), "")?.trim().orEmpty()
+                    if (reply.isBlank()) rumiSpeak("দুঃখিত, এবার উত্তর তৈরি করতে পারিনি।") else rumiSpeak(reply)
+                } else {
+                    val message = try { JSONObject(response).optJSONObject("error")?.optString("message") } catch (_: Exception) { null }
+                    rumiSpeak("Gemini API সমস্যা ($code): " + (message?.take(180) ?: "API Key বা মডেল যাচাই করুন"))
+                }
+            } catch (e: Exception) {
+                rumiSpeak("ইন্টারনেট সংযোগে সমস্যা হয়েছে।")
+            } finally { conn?.disconnect() }
         }
-    }
-
-    private fun openApp(packageName: String, fallbackUrl: String) {
-        val intent = packageManager.getLaunchIntentForPackage(packageName)
-        if (intent != null) startActivity(intent)
-        else startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(fallbackUrl)))
-    }
-
-    override fun onBackPressed() {
-        if (::webView.isInitialized && webView.canGoBack()) webView.goBack() else super.onBackPressed()
     }
 
     override fun onDestroy() {
-        continuousVoice = false
-        try { speechRecognizer?.destroy() } catch (_: Exception) {}
-        if (::tts.isInitialized) {
-            tts.stop()
-            tts.shutdown()
-        }
-        if (::webView.isInitialized) {
-            webView.removeJavascriptInterface("AndroidTTS")
-            webView.removeJavascriptInterface("AndroidVoice")
-            webView.removeJavascriptInterface("AndroidActions")
-            webView.destroy()
-        }
+        isContinuousMode = false
+        try { speechRecognizer?.destroy(); tts.stop(); tts.shutdown() } catch (_: Exception) {}
         super.onDestroy()
     }
 }
