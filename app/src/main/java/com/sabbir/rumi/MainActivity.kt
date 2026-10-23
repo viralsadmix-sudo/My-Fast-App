@@ -12,7 +12,9 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.widget.Button
+import android.widget.EditText
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import java.util.Locale
@@ -24,8 +26,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private lateinit var tvUserCommand: TextView
     private lateinit var tvRumiReply: TextView
     private lateinit var tvStatus: TextView
+    private lateinit var etApiKey: EditText
 
-    // অনুমতি ট্র্যাক করার ভ্যারিয়েবল
     private var pendingAction: (() -> Unit)? = null
     private var awaitingConfirmation = false
 
@@ -36,18 +38,32 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         tvUserCommand = findViewById(R.id.tvUserCommand)
         tvRumiReply = findViewById(R.id.tvRumiReply)
         tvStatus = findViewById(R.id.tvStatus)
-        val btnSpeak: Button = findViewById(R.id.btnSpeak)
-        val btnPermission: Button = findViewById(R.id.btnPermission)
+        etApiKey = findViewById(R.id.etApiKey)
 
-        // মাইক্রোফোন পারমিশন চাওয়া
+        val btnSpeak: Button = findViewById(R.id.btnSpeak)
+        val btnSaveKey: Button = findViewById(R.id.btnSaveKey)
+        val btnVoiceSettings: Button = findViewById(R.id.btnVoiceSettings)
+
+        val preferences = getSharedPreferences("rumi_settings", MODE_PRIVATE)
+        etApiKey.setText(preferences.getString("gemini_api_key", ""))
+
+        btnSaveKey.setOnClickListener {
+            val key = etApiKey.text.toString().trim()
+            if (key.isBlank()) {
+                Toast.makeText(this, "আগে Gemini API Key লিখুন", Toast.LENGTH_SHORT).show()
+            } else {
+                preferences.edit().putString("gemini_api_key", key).apply()
+                Toast.makeText(this, "API Key এই ফোনে সেভ হয়েছে", Toast.LENGTH_SHORT).show()
+                tvStatus.text = "API Key সেভ হয়েছে"
+            }
+        }
+
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), 100)
         }
 
-        // TextToSpeech (মেয়ে কণ্ঠ) সেটআপ
         tts = TextToSpeech(this, this)
 
-        // SpeechRecognizer সেটআপ
         speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
         speechRecognizer.setRecognitionListener(object : RecognitionListener {
             override fun onReadyForSpeech(params: Bundle?) {
@@ -67,61 +83,77 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 if (!matches.isNullOrEmpty()) {
                     val spokenText = matches[0]
                     tvUserCommand.text = "আপনি: $spokenText"
-                    processCommand(spokenText.lowercase())
+                    processCommand(spokenText.lowercase(Locale.ROOT))
                 }
             }
             override fun onPartialResults(partialResults: Bundle?) {}
             override fun onEvent(eventType: Int, params: Bundle?) {}
         })
 
-        btnSpeak.setOnClickListener {
-            startListening()
-        }
+        btnSpeak.setOnClickListener { startListening() }
 
-        btnPermission.setOnClickListener {
-            val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-            startActivity(intent)
+        btnVoiceSettings.setOnClickListener {
+            try {
+                startActivity(Intent("com.android.settings.TTS_SETTINGS"))
+            } catch (_: Exception) {
+                try {
+                    startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                } catch (_: Exception) {
+                    Toast.makeText(this, "ফোনের Settings থেকে Text-to-speech খুঁজুন", Toast.LENGTH_LONG).show()
+                }
+            }
         }
     }
 
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
             val banglaLocale = Locale("bn", "BD")
-            tts.language = banglaLocale
+            val languageResult = tts.setLanguage(banglaLocale)
 
-            // মেয়ে কণ্ঠ সিলেক্ট করার লজিক (Female Voice Selection & Pitch tuning)
             val voices = tts.voices
             if (voices != null) {
-                for (voice in voices) {
-                    if (voice.locale.language == "bn" && voice.name.lowercase().contains("female")) {
-                        tts.voice = voice
-                        break
-                    }
+                val femaleBanglaVoice = voices.firstOrNull {
+                    it.locale.language == "bn" && it.name.contains("female", ignoreCase = true)
                 }
+                if (femaleBanglaVoice != null) tts.voice = femaleBanglaVoice
             }
-            tts.setPitch(1.25f) // মিষ্টি মেয়েলি কণ্ঠের জন্য পিচ টিউনিং
+
+            tts.setPitch(1.15f)
             tts.setSpeechRate(0.95f)
 
+            if (languageResult == TextToSpeech.LANG_MISSING_DATA || languageResult == TextToSpeech.LANG_NOT_SUPPORTED) {
+                tvStatus.text = "ফোনে বাংলা Text-to-speech voice ইনস্টল করুন"
+            }
             rumiSpeak("আসসালামু আলাইকুম, আমি রুমি। বলুন আপনার জন্য কী করতে পারি?")
         }
     }
 
     private fun startListening() {
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            rumiSpeak("এই ফোনে Speech Recognition পাওয়া যাচ্ছে না।")
+            return
+        }
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, "bn-BD")
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "bn-BD")
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
         }
-        speechRecognizer.startListening(intent)
+        try {
+            speechRecognizer.startListening(intent)
+        } catch (_: Exception) {
+            tvStatus.text = "মাইক্রোফোন চালু করা যায়নি"
+        }
     }
 
     private fun rumiSpeak(text: String) {
         tvRumiReply.text = "রুমি: $text"
-        tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "RUMI_ID")
+        if (::tts.isInitialized) {
+            tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "RUMI_ID")
+        }
     }
 
-    // কমান্ড এবং অনুমতি যাচাই করার মূল ব্রেইন
     private fun processCommand(command: String) {
-        // যদি রুমি কোনো কাজের অনুমতির অপেক্ষায় থাকে
         if (awaitingConfirmation) {
             if (command.contains("হ্যাঁ") || command.contains("হা") || command.contains("করো") || command.contains("ওকে") || command.contains("yes")) {
                 awaitingConfirmation = false
@@ -138,56 +170,48 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             return
         }
 
-        // ১. ফেসবুক চালানোর কমান্ড
         if (command.contains("ফেসবুক") && (command.contains("চালাও") || command.contains("ওপেন") || command.contains("খোলো"))) {
             askPermission("আমি কি আপনার ফোনে ফেসবুক ওপেন করবো? অনুমতি দিলে হ্যাঁ বলুন।") {
                 openApp("com.facebook.katana", "https://www.facebook.com")
             }
-        }
-        // ২. স্ক্রল করার কমান্ড
-        else if (command.contains("স্ক্রল") || command.contains("নিচে যাও")) {
+        } else if (command.contains("স্ক্রল") || command.contains("নিচে যাও")) {
             askPermission("আমি কি স্ক্রিনটি নিচে স্ক্রল করবো?") {
                 val service = RumiControlService.instance
-                if (service != null) {
-                    service.scrollDown()
-                } else {
-                    rumiSpeak("স্ক্রল করার জন্য আগে সেটিংস থেকে রুমির অ্যাক্সেসিবিলিটি পারমিশন অন করুন।")
-                }
+                if (service != null) service.scrollDown()
+                else rumiSpeak("স্ক্রল করার জন্য আগে সেটিংস থেকে রুমির অ্যাক্সেসিবিলিটি পারমিশন অন করুন।")
             }
-        }
-        // ৩. উপরে যাওয়ার কমান্ড
-        else if (command.contains("উপরে যাও")) {
+        } else if (command.contains("উপরে যাও")) {
             askPermission("আমি কি স্ক্রিনটি উপরে তুলবো?") {
-                RumiControlService.instance?.scrollUp()
+                val service = RumiControlService.instance
+                if (service != null) service.scrollUp()
+                else rumiSpeak("উপরে স্ক্রল করতে আগে রুমির অ্যাক্সেসিবিলিটি পারমিশন অন করুন।")
             }
-        }
-        // ৪. গুগলে সার্চ করার কমান্ড
-        else if (command.contains("গুগলে") || command.contains("সার্চ")) {
+        } else if (command.contains("গুগলে") || command.contains("সার্চ")) {
             val query = command.replace("গুগলে", "").replace("সার্চ দাও", "").replace("সার্চ করো", "").trim()
-            askPermission("আমি কি গুগলে '$query' লিখে সার্চ করবো?") {
-                val intent = Intent(Intent.ACTION_WEB_SEARCH).apply {
-                    putExtra(SearchManager.QUERY, query)
+            if (query.isBlank()) {
+                rumiSpeak("কী সার্চ করতে হবে বলুন।")
+            } else {
+                askPermission("আমি কি গুগলে '$query' লিখে সার্চ করবো?") {
+                    val intent = Intent(Intent.ACTION_WEB_SEARCH).apply {
+                        putExtra(SearchManager.QUERY, query)
+                    }
+                    startActivity(intent)
                 }
-                startActivity(intent)
             }
-        }
-        // ৫. ইউটিউব ওপেন করার কমান্ড
-        else if (command.contains("ইউটিউব")) {
+        } else if (command.contains("ইউটিউব")) {
             askPermission("আমি কি ইউটিউব ওপেন করবো?") {
                 openApp("com.google.android.youtube", "https://www.youtube.com")
             }
-        }
-        // ৬. হোম স্ক্রিনে যাওয়া
-        else if (command.contains("হোম") || command.contains("কেটে দাও")) {
+        } else if (command.contains("হোম") || command.contains("কেটে দাও")) {
             askPermission("আমি কি হোম স্ক্রিনে ফিরে যাবো?") {
-                RumiControlService.instance?.goHome()
+                val service = RumiControlService.instance
+                if (service != null) service.goHome()
+                else rumiSpeak("এই কাজের জন্য আগে রুমির অ্যাক্সেসিবিলিটি পারমিশন অন করুন।")
             }
-        }
-        // ৭. সাধারণ কথোপকথন
-        else if (command.contains("তোমার নাম কি") || command.contains("তুমি কে")) {
+        } else if (command.contains("তোমার নাম কি") || command.contains("তুমি কে") || command.contains("তোমার নাম কী")) {
             rumiSpeak("আমার নাম রুমি। আমি আপনার পার্সোনাল ভয়েস অ্যাসিস্ট্যান্ট।")
         } else {
-            rumiSpeak("আমি আপনার কথা শুনতে পেয়েছি। আপনি চাইলে আমাকে ফেসবুক চালাতে, স্ক্রল করতে বা গুগলে কিছু সার্চ করতে বলতে পারেন।")
+            rumiSpeak("আমি আপনার কথা শুনতে পেয়েছি। আপাতত আমাকে ফেসবুক চালাতে, স্ক্রল করতে বা গুগলে কিছু সার্চ করতে বলতে পারেন।")
         }
     }
 
@@ -202,15 +226,16 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         if (launchIntent != null) {
             startActivity(launchIntent)
         } else {
-            val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(fallbackUrl))
-            startActivity(browserIntent)
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(fallbackUrl)))
         }
     }
 
     override fun onDestroy() {
-        tts.stop()
-        tts.shutdown()
-        speechRecognizer.destroy()
+        if (::tts.isInitialized) {
+            tts.stop()
+            tts.shutdown()
+        }
+        if (::speechRecognizer.isInitialized) speechRecognizer.destroy()
         super.onDestroy()
     }
 }
