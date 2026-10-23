@@ -340,6 +340,24 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 if (service != null) service.goHome()
                 else rumiSpeak("এই কাজের জন্য আগে রুমির অ্যাক্সেসিবিলিটি পারমিশন অন করুন।")
             }
+        } else if (command.contains("স্ক্রল") || command.contains("নিচে যাও")) {
+            askPermission("আমি কি স্ক্রিনটি নিচে স্ক্রল করবো?") {
+                val service = RumiControlService.instance
+                if (service != null) service.scrollDown()
+                else rumiSpeak("স্ক্রল করার জন্য আগে সেটিংস থেকে রুমির অ্যাক্সেসিবিলিটি পারমিশন অন করুন।")
+            }
+        } else if (command.contains("উপরে যাও")) {
+            askPermission("আমি কি স্ক্রিনটি উপরে তুলবো?") {
+                val service = RumiControlService.instance
+                if (service != null) service.scrollUp()
+                else rumiSpeak("উপরে স্ক্রল করতে আগে রুমির অ্যাক্সেসিবিলিটি পারমিশন অন করুন।")
+            }
+        } else if (command.contains("হোম") || command.contains("কেটে দাও")) {
+            askPermission("আমি কি হোম স্ক্রিনে ফিরে যাবো?") {
+                val service = RumiControlService.instance
+                if (service != null) service.goHome()
+                else rumiSpeak("এই কাজের জন্য আগে রুমির অ্যাক্সেসিবিলিটি পারমিশন অন করুন।")
+            }
         } else if (command.contains("কল দাও") || command.contains("ডায়াল")) {
             askPermission("আমি কি ফোনের ডায়ালপ্যাড ওপেন করবো?") {
                 startActivity(Intent(Intent.ACTION_DIAL))
@@ -357,9 +375,12 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private fun askRumiAI(userQuestion: String) {
         val prefs = getSharedPreferences("RumiPrefs", Context.MODE_PRIVATE)
-        val apiKey = prefs.getString("API_KEY", "")?.trim().orEmpty()
+        val currentBoxKey = etApiKey.text.toString().replace("\\s".toRegex(), "").trim()
+        val apiKey = if (currentBoxKey.isNotEmpty()) currentBoxKey
+            else (prefs.getString("API_KEY", null)
+                ?: getSharedPreferences("rumi_settings", Context.MODE_PRIVATE).getString("gemini_api_key", "")).orEmpty().trim()
 
-        if (apiKey.isEmpty()) {
+        if (apiKey.isEmpty() || !apiKey.startsWith("AIza")) {
             rumiSpeak("আমার AI উত্তর চালু করতে উপরের বক্সে Gemini API Key পেস্ট করে Save বাটনে চাপ দিন।")
             return
         }
