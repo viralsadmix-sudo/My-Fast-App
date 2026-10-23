@@ -89,6 +89,32 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             }
         }
 
+        findViewById<Button>(R.id.btnFacebook).setOnClickListener {
+            askPermission("আমি কি ফেসবুক ওপেন করবো?") {
+                openApp("com.facebook.katana", "https://m.facebook.com")
+            }
+        }
+        findViewById<Button>(R.id.btnYouTube).setOnClickListener {
+            askPermission("আমি কি ইউটিউব ওপেন করবো?") {
+                openApp("com.google.android.youtube", "https://m.youtube.com")
+            }
+        }
+        findViewById<Button>(R.id.btnGoogle).setOnClickListener {
+            askPermission("আমি কি গুগল সার্চ খুলবো?") {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com")))
+            }
+        }
+        findViewById<Button>(R.id.btnDial).setOnClickListener {
+            askPermission("আমি কি ফোনের ডায়ালপ্যাড ওপেন করবো?") {
+                startActivity(Intent(Intent.ACTION_DIAL))
+            }
+        }
+        findViewById<Button>(R.id.btnAlarm).setOnClickListener {
+            askPermission("আমি কি অ্যালার্ম সেটিংস ওপেন করবো?") {
+                startActivity(Intent(AlarmClock.ACTION_SHOW_ALARMS))
+            }
+        }
+
         btnVoiceSettings.setOnClickListener {
             try {
                 startActivity(Intent("com.android.settings.TTS_SETTINGS"))
