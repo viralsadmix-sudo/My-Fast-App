@@ -155,7 +155,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             } ?: bnVoices.lastOrNull()
             if (preferredVoice != null) tts.voice = preferredVoice
 
-            tts.setPitch(1.35f)
+            tts.setPitch(1.45f)
             tts.setSpeechRate(0.95f)
             tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                 override fun onStart(utteranceId: String?) { isRumiSpeaking = true }
@@ -340,24 +340,6 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 if (service != null) service.goHome()
                 else rumiSpeak("এই কাজের জন্য আগে রুমির অ্যাক্সেসিবিলিটি পারমিশন অন করুন।")
             }
-        } else if (command.contains("স্ক্রল") || command.contains("নিচে যাও")) {
-            askPermission("আমি কি স্ক্রিনটি নিচে স্ক্রল করবো?") {
-                val service = RumiControlService.instance
-                if (service != null) service.scrollDown()
-                else rumiSpeak("স্ক্রল করার জন্য আগে সেটিংস থেকে রুমির অ্যাক্সেসিবিলিটি পারমিশন অন করুন।")
-            }
-        } else if (command.contains("উপরে যাও")) {
-            askPermission("আমি কি স্ক্রিনটি উপরে তুলবো?") {
-                val service = RumiControlService.instance
-                if (service != null) service.scrollUp()
-                else rumiSpeak("উপরে স্ক্রল করতে আগে রুমির অ্যাক্সেসিবিলিটি পারমিশন অন করুন।")
-            }
-        } else if (command.contains("হোম") || command.contains("কেটে দাও")) {
-            askPermission("আমি কি হোম স্ক্রিনে ফিরে যাবো?") {
-                val service = RumiControlService.instance
-                if (service != null) service.goHome()
-                else rumiSpeak("এই কাজের জন্য আগে রুমির অ্যাক্সেসিবিলিটি পারমিশন অন করুন।")
-            }
         } else if (command.contains("কল দাও") || command.contains("ডায়াল")) {
             askPermission("আমি কি ফোনের ডায়ালপ্যাড ওপেন করবো?") {
                 startActivity(Intent(Intent.ACTION_DIAL))
@@ -381,69 +363,75 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 ?: getSharedPreferences("rumi_settings", Context.MODE_PRIVATE).getString("gemini_api_key", "")).orEmpty().trim()
 
         if (apiKey.isEmpty() || !apiKey.startsWith("AIza")) {
-            rumiSpeak("আমার AI উত্তর চালু করতে উপরের বক্সে Gemini API Key পেস্ট করে Save বাটনে চাপ দিন।")
+            rumiSpeak("সঠিক Gemini API Key পাওয়া যায়নি। উপরের বক্সে API Key দিয়ে Save চাপুন।")
             return
         }
 
-        runOnUiThread { tvStatus.text = "রুমি চিন্তা করছে..." }
-
+        mainHandler.post { tvStatus.text = "রুমি চিন্তা করছে..." }
         thread(name = "RumiGeminiRequest") {
-            var conn: HttpURLConnection? = null
-            try {
-                val url = URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent")
-                conn = (url.openConnection() as HttpURLConnection).apply {
-                    requestMethod = "POST"
-                    connectTimeout = 15000
-                    readTimeout = 30000
-                    setRequestProperty("Content-Type", "application/json; charset=UTF-8")
-                    setRequestProperty("x-goog-api-key", apiKey)
-                    doOutput = true
-                }
+            val models = listOf("gemini-3.8-flash", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash")
+            var lastCode = 0
+            var success = false
 
-                val prompt = "তোমার নাম রুমি। তুমি একজন বুদ্ধিমতী, বন্ধুসুলভ বাংলা ভয়েস অ্যাসিস্ট্যান্ট। " +
-                    "ব্যবহারকারী বাংলায় কথা বললে সহজ ও স্বাভাবিক বাংলায় ১ থেকে ৩ বাক্যে উত্তর দাও। " +
-                    "প্রয়োজনে প্রশ্নটি বুঝে সহায়ক উত্তর দাও। অপ্রয়োজনীয় মার্কডাউন চিহ্ন ব্যবহার করবে না।\nপ্রশ্ন: $userQuestion"
+            for (modelName in models) {
+                var conn: HttpURLConnection? = null
+                try {
+                    val url = URL("https://generativelanguage.googleapis.com/v1beta/models/$modelName:generateContent")
+                    conn = (url.openConnection() as HttpURLConnection).apply {
+                        requestMethod = "POST"
+                        connectTimeout = 15000
+                        readTimeout = 30000
+                        setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+                        setRequestProperty("x-goog-api-key", apiKey)
+                        doOutput = true
+                    }
 
-                val requestBody = JSONObject()
-                    .put("contents", JSONArray().put(
-                        JSONObject().put("parts", JSONArray().put(JSONObject().put("text", prompt)))
-                    ))
+                    val prompt = "তোমার নাম রুমি। তুমি একজন বুদ্ধিমতী, বন্ধুসুলভ বাংলা ভয়েস অ্যাসিস্ট্যান্ট। " +
+                        "ব্যবহারকারী বাংলায় কথা বললে সহজ ও স্বাভাবিক বাংলায় ১ থেকে ৩ বাক্যে উত্তর দাও। " +
+                        "অপ্রয়োজনীয় মার্কডাউন চিহ্ন ব্যবহার করবে না। প্রশ্ন: $userQuestion"
+                    val requestBody = JSONObject().put(
+                        "contents",
+                        JSONArray().put(JSONObject().put("parts", JSONArray().put(JSONObject().put("text", prompt))))
+                    )
+                    OutputStreamWriter(conn.outputStream, Charsets.UTF_8).use { it.write(requestBody.toString()) }
 
-                OutputStreamWriter(conn.outputStream, Charsets.UTF_8).use { writer ->
-                    writer.write(requestBody.toString())
-                }
+                    val responseCode = conn.responseCode
+                    lastCode = responseCode
+                    val stream = if (responseCode in 200..299) conn.inputStream else conn.errorStream
+                    val responseText = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
 
-                val responseCode = conn.responseCode
-                val stream = if (responseCode in 200..299) conn.inputStream else conn.errorStream
-                val responseText = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
-
-                if (responseCode in 200..299) {
-                    val json = JSONObject(responseText)
-                    val candidates = json.optJSONArray("candidates")
-                    val parts = candidates?.optJSONObject(0)?.optJSONObject("content")?.optJSONArray("parts")
-                    val reply = parts?.optJSONObject(0)?.optString("text").orEmpty().trim()
-                    if (reply.isNotBlank()) {
-                        rumiSpeak(reply.replace("*", ""))
+                    if (responseCode in 200..299) {
+                        val json = JSONObject(responseText)
+                        val parts = json.optJSONArray("candidates")
+                            ?.optJSONObject(0)?.optJSONObject("content")?.optJSONArray("parts")
+                        val reply = parts?.optJSONObject(0)?.optString("text").orEmpty()
+                            .replace("*", "").replace("#", "").replace("\\n", " ").trim()
+                        if (reply.isNotBlank()) {
+                            rumiSpeak(reply)
+                            success = true
+                            break
+                        }
                     } else {
-                        rumiSpeak("এবার উত্তর পাওয়া যায়নি। আরেকবার প্রশ্ন করুন।")
+                        android.util.Log.w("RumiAI", "Model $modelName returned HTTP $responseCode")
+                        if (responseCode == 400 || responseCode == 401 || responseCode == 403 || responseCode == 429) break
                     }
-                } else {
-                    val apiMessage = try {
-                        JSONObject(responseText).optJSONObject("error")?.optString("message").orEmpty()
-                    } catch (_: Exception) { "" }
-                    android.util.Log.e("RumiAI", "Gemini API error $responseCode: $apiMessage")
-                    when (responseCode) {
-                        400, 401, 403 -> rumiSpeak("Gemini API Key বা API সেটিংস পরীক্ষা করুন।")
-                        404 -> rumiSpeak("এই Gemini মডেলটি পাওয়া যাচ্ছে না। মডেল নাম পরীক্ষা করতে হবে।")
-                        429 -> rumiSpeak("এখন অনেক বেশি অনুরোধ হয়েছে। একটু পরে আবার চেষ্টা করুন।")
-                        else -> rumiSpeak("Gemini থেকে উত্তর পাওয়া যায়নি। ইন্টারনেট সংযোগ পরীক্ষা করে আবার চেষ্টা করুন।")
-                    }
+                } catch (e: Exception) {
+                    android.util.Log.w("RumiAI", "Model $modelName request failed", e)
+                } finally {
+                    conn?.disconnect()
                 }
-            } catch (e: Exception) {
-                android.util.Log.e("RumiAI", "Gemini request failed", e)
-                rumiSpeak("দুঃখিত, সংযোগে সমস্যা হয়েছে। ইন্টারনেট পরীক্ষা করে আবার বলুন।")
-            } finally {
-                conn?.disconnect()
+            }
+
+            if (!success) {
+                mainHandler.post {
+                    tvRumiReply.text = "রুমি: Gemini থেকে উত্তর পাওয়া যায়নি (HTTP $lastCode)। API Key, ইন্টারনেট বা মডেল উপলভ্যতা পরীক্ষা করুন।"
+                }
+                rumiSpeak(when (lastCode) {
+                    400, 401, 403 -> "Gemini API Key বা API সেটিংস পরীক্ষা করুন।"
+                    429 -> "অনেক বেশি অনুরোধ হয়েছে। একটু পরে আবার চেষ্টা করুন।"
+                    404 -> "আপনার API-তে সমর্থিত Gemini মডেল পাওয়া যায়নি।"
+                    else -> "ইন্টারনেট বা Gemini সংযোগে সমস্যা হয়েছে। আবার চেষ্টা করুন।"
+                })
             }
         }
     }
