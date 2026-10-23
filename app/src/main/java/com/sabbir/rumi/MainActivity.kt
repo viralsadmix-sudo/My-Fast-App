@@ -190,7 +190,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         thread {
             var conn: HttpURLConnection? = null
             try {
-                val endpoint = URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + java.net.URLEncoder.encode(key, "UTF-8"))
+                val endpoint = URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=" + java.net.URLEncoder.encode(key, "UTF-8"))
                 conn = (endpoint.openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
                     setRequestProperty("Content-Type", "application/json; charset=UTF-8")
