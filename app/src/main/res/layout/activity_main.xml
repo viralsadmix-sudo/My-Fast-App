@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#0D0D1A"
+    android:gravity="center"
+    android:padding="24dp">
+
+    <!-- Rumi Title & Avatar Indicator -->
+    <TextView
+        android:id="@+id/tvAssistantName"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="RUMI AI"
+        android:textColor="#FF2E93"
+        android:textSize="32sp"
+        android:textStyle="bold"
+        android:letterSpacing="0.15" />
+
+    <TextView
+        android:id="@+id/tvStatus"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="আপনার পার্সোনাল ভয়েস অ্যাসিস্ট্যান্ট"
+        android:textColor="#8A8A9E"
+        android:textSize="14sp"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="32dp" />
+
+    <!-- AI Glowing Core Circle -->
+    <View
+        android:id="@+id/aiOrb"
+        android:layout_width="130dp"
+        android:layout_height="130dp"
+        android:background="@android:drawable/presence_online"
+        android:layout_marginBottom="32dp" />
+
+    <!-- Conversation Display Box -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#1A1A2E"
+        android:padding="20dp"
+        android:layout_marginBottom="32dp">
+
+        <TextView
+            android:id="@+id/tvUserCommand"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="আপনি: কিছু বলুন..."
+            android:textColor="#00F0FF"
+            android:textSize="16sp"
+            android:layout_marginBottom="12dp" />
+
+        <TextView
+            android:id="@+id/tvRumiReply"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="রুমি: আসসালামু আলাইকুম! আমি রুমি। আমাকে যেকোনো কাজের নির্দেশ দিন।"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- Speak Button -->
+    <Button
+        android:id="@+id/btnSpeak"
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:text="🎙️ রুমির সাথে কথা বলুন"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"
+        android:backgroundTint="#FF2E93"
+        android:layout_marginBottom="16dp" />
+
+    <!-- Accessibility Settings Button -->
+    <Button
+        android:id="@+id/btnPermission"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:text="⚙️ ফোন কন্ট্রোল পারমিশন অন করুন"
+        android:textSize="14sp"
+        android:textColor="#CCCCCC"
+        android:backgroundTint="#252542" />
+
+</LinearLayout>
