@@ -35,9 +35,11 @@
 
     <RelativeLayout
         android:id="@+id/avatarContainer"
-        android:layout_width="180dp"
-        android:layout_height="180dp"
-        android:layout_centerInParent="true">
+        android:layout_width="132dp"
+        android:layout_height="132dp"
+        android:layout_below="@id/headerLayout"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="8dp">
 
         <View
             android:layout_width="match_parent"
@@ -46,13 +48,111 @@
 
         <ImageView
             android:id="@+id/imgRumiAvatar"
-            android:layout_width="168dp"
-            android:layout_height="168dp"
+            android:layout_width="124dp"
+            android:layout_height="124dp"
             android:layout_centerInParent="true"
             android:scaleType="centerCrop"
             android:background="@android:color/black"
             android:contentDescription="Rumi AI avatar" />
     </RelativeLayout>
+
+
+    <LinearLayout
+        android:id="@+id/quickActions"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_above="@id/apiKeyLayout"
+        android:orientation="vertical"
+        android:layout_marginBottom="8dp"
+        android:layout_marginTop="4dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="⚡ দ্রুত অপশন"
+            android:textColor="#FF2E93"
+            android:textStyle="bold"
+            android:textSize="14sp"
+            android:layout_marginBottom="4dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnFacebook"
+                android:layout_width="0dp"
+                android:layout_height="42dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="4dp"
+                android:text="Facebook"
+                android:textSize="10sp"
+                android:minWidth="0dp"
+                android:paddingHorizontal="2dp"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#1877F2" />
+
+            <Button
+                android:id="@+id/btnYouTube"
+                android:layout_width="0dp"
+                android:layout_height="42dp"
+                android:layout_weight="1"
+                android:layout_marginHorizontal="2dp"
+                android:text="YouTube"
+                android:textSize="10sp"
+                android:minWidth="0dp"
+                android:paddingHorizontal="2dp"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#E62117" />
+
+            <Button
+                android:id="@+id/btnGoogle"
+                android:layout_width="0dp"
+                android:layout_height="42dp"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:text="Google"
+                android:textSize="10sp"
+                android:minWidth="0dp"
+                android:paddingHorizontal="2dp"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#4285F4" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="4dp">
+
+            <Button
+                android:id="@+id/btnDial"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="4dp"
+                android:text="📞 কল"
+                android:textSize="11sp"
+                android:minWidth="0dp"
+                android:paddingHorizontal="2dp"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#00897B" />
+
+            <Button
+                android:id="@+id/btnAlarm"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:text="⏰ অ্যালার্ম"
+                android:textSize="11sp"
+                android:minWidth="0dp"
+                android:paddingHorizontal="2dp"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#6A4C93" />
+        </LinearLayout>
+    </LinearLayout>
 
     <Button
         android:id="@+id/btnVoiceSettings"
