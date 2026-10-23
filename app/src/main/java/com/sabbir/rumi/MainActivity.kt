@@ -2,6 +2,7 @@ package com.sabbir.rumi
 
 import android.Manifest
 import android.app.SearchManager
+import android.graphics.BitmapFactory
 import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.os.Handler
@@ -13,6 +14,8 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
+import android.view.animation.Animation
+import android.view.animation.ScaleAnimation
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
@@ -20,6 +23,7 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -42,6 +46,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private lateinit var tvStatus: TextView
     private lateinit var etApiKey: EditText
     private lateinit var btnSpeak: Button
+    private lateinit var imgRumiAvatar: ImageView
     private var mediaPlayer: MediaPlayer? = null
     private val mainHandler = Handler(Looper.getMainLooper())
     private var isContinuousMode = false
@@ -61,6 +66,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
         val btnSaveKey: Button = findViewById(R.id.btnSaveKey)
         btnSpeak = findViewById(R.id.btnSpeak)
+        imgRumiAvatar = findViewById(R.id.imgRumiAvatar)
+        setupRumiAvatar()
         val btnVoiceSettings: Button = findViewById(R.id.btnVoiceSettings)
 
         // API Key পুরোনো ও নতুন preference দুটো থেকেই পড়া; নতুন জায়গায় সংরক্ষণ
@@ -142,6 +149,28 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 startListening()
             }
         }
+    }
+
+    private fun setupRumiAvatar() {
+        try {
+            assets.open("rumi_avatar.jpg").use { input ->
+                val bitmap = BitmapFactory.decodeStream(input)
+                if (bitmap != null) imgRumiAvatar.setImageBitmap(bitmap)
+            }
+        } catch (_: Exception) {
+            // rumi_avatar.jpg না থাকলে avatar container কালো থাকবে; অ্যাপ চালু থাকবে।
+        }
+
+        val pulseAnim = ScaleAnimation(
+            1.0f, 1.05f, 1.0f, 1.05f,
+            Animation.RELATIVE_TO_SELF, 0.5f,
+            Animation.RELATIVE_TO_SELF, 0.5f
+        ).apply {
+            duration = 1500
+            repeatMode = Animation.REVERSE
+            repeatCount = Animation.INFINITE
+        }
+        imgRumiAvatar.startAnimation(pulseAnim)
     }
 
     override fun onInit(status: Int) {
