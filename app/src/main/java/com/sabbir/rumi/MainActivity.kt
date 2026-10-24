@@ -34,6 +34,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private lateinit var tvRumiReply: TextView
     private lateinit var tvStatus: TextView
     private lateinit var etApiKey: EditText
+    private lateinit var etModelName: EditText
     private lateinit var btnSpeak: Button
     private lateinit var webViewAvatar: WebView
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -48,6 +49,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         tvRumiReply = findViewById(R.id.tvRumiReply)
         tvStatus = findViewById(R.id.tvStatus)
         etApiKey = findViewById(R.id.etApiKey)
+        etModelName = findViewById(R.id.etModelName)
         val btnSaveKey: Button = findViewById(R.id.btnSaveKey)
         btnSpeak = findViewById(R.id.btnSpeak)
         webViewAvatar = findViewById(R.id.webViewAvatar)
@@ -58,11 +60,14 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
         val prefs = getSharedPreferences("RumiPrefs", Context.MODE_PRIVATE)
         etApiKey.setText(prefs.getString("API_KEY", ""))
+        etModelName.setText(prefs.getString("MODEL_NAME", "gemini-2.5-flash"))
         btnSaveKey.setOnClickListener {
-            val key = etApiKey.text.toString().trim()
+            val key = etApiKey.text.toString().replace("\\s".toRegex(), "").trim()
+            val model = etModelName.text.toString().trim().removePrefix("models/")
             if (key.isBlank()) { etApiKey.error = "Gemini API Key দিন"; return@setOnClickListener }
-            prefs.edit().putString("API_KEY", key).apply()
-            Toast.makeText(this, "API Key সেভ হয়েছে", Toast.LENGTH_SHORT).show()
+            if (model.isBlank() || model.contains(" ")) { etModelName.error = "সঠিক মডেল আইডি দিন"; return@setOnClickListener }
+            prefs.edit().putString("API_KEY", key).putString("MODEL_NAME", model).apply()
+            Toast.makeText(this, "API Key ও মডেল সেভ হয়েছে", Toast.LENGTH_SHORT).show()
             rumiSpeak("ধন্যবাদ! API Key সেভ হয়েছে।")
         }
         tts = TextToSpeech(this, this)
@@ -199,7 +204,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             var conn: HttpURLConnection? = null
             try {
                 // বর্তমান সচল Gemini Flash মডেল
-                val url = URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent")
+                val url = URL("https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent")
                 conn = (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
                     setRequestProperty("Content-Type", "application/json; charset=UTF-8")
