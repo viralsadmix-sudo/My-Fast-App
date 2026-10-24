@@ -193,6 +193,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         val savedKey = prefs.getString("API_KEY", "") ?: ""
         val currentBoxKey = etApiKey.text.toString().replace("\\s".toRegex(), "").trim()
         val apiKey = if (currentBoxKey.isNotEmpty()) currentBoxKey else savedKey
+        val modelName = (prefs.getString("MODEL_NAME", "gemini-2.5-flash") ?: "gemini-2.5-flash").trim().removePrefix("models/")
 
         if (apiKey.isBlank()) {
             rumiSpeak("দয়া করে আপনার জেমিনি এপিআই কি দিন।")
