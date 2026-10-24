@@ -205,6 +205,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         tvStatus.text = "রুমি উত্তর তৈরি করছে..."
         thread {
             var conn: HttpURLConnection? = null
+            var requestStage = "HTTPS সংযোগ তৈরি"
             try {
                 // মডেল আইডি সেটিংস থেকে আবার পড়ি, যাতে request scope-এ নিশ্চিতভাবে থাকে
                 val selectedModel = (prefs.getString("MODEL_NAME", "gemini-3.8-flash") ?: "gemini-3.8-flash").trim().removePrefix("models/")
@@ -212,10 +213,13 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 conn = (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
                     setRequestProperty("Content-Type", "application/json; charset=UTF-8")
-                    // Google AI Studio-এর AQ. authorization API key API-key header দিয়ে পাঠাতে হয়
+                    setRequestProperty("Accept", "application/json")
+                    setRequestProperty("Connection", "close")
                     setRequestProperty("x-goog-api-key", apiKey)
-                    connectTimeout = 20000
-                    readTimeout = 30000
+                    connectTimeout = 45000
+                    readTimeout = 45000
+                    useCaches = false
+                    doInput = true
                     doOutput = true
                 }
 
@@ -230,11 +234,15 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     )
                 )
 
+                requestStage = "Gemini-তে অনুরোধ পাঠানো"
                 conn.outputStream.use { output ->
                     output.write(requestBody.toString().toByteArray(Charsets.UTF_8))
+                    output.flush()
                 }
 
+                requestStage = "Gemini-এর উত্তর অপেক্ষা"
                 val code = conn.responseCode
+                requestStage = "Gemini-এর উত্তর পড়া"
                 val stream = if (code in 200..299) conn.inputStream else conn.errorStream
                 val responseText = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
 
@@ -273,7 +281,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             } catch (e: Exception) {
                 val reason = (e.message ?: e.javaClass.simpleName).take(220)
                 runOnUiThread {
-                    tvRumiReply.text = "সংযোগের ত্রুটি: ${e.javaClass.simpleName}: $reason"
+                    tvRumiReply.text = "সংযোগের ত্রুটি [${requestStage}]: ${e.javaClass.simpleName}: $reason"
                     tvStatus.text = "অনুরোধ ব্যর্থ—উপরের ত্রুটিটি দেখুন"
                 }
             } finally {
