@@ -13,7 +13,7 @@
             <WebView android:id="@+id/webViewAvatar" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@android:color/transparent"/>
         </FrameLayout>
         <EditText android:id="@+id/etModelName" android:layout_width="match_parent" android:layout_height="48dp"
-            android:layout_marginBottom="8dp" android:hint="Gemini model ID (যেমন gemini-2.5-flash)" android:singleLine="true"
+            android:layout_marginBottom="8dp" android:hint="Gemini model ID (যেমন gemini-3.8-flash)" android:singleLine="true"
             android:inputType="textNoSuggestions" android:textColor="#FFFFFF" android:textColorHint="#77778A"
             android:backgroundTint="#FF2E93" android:paddingHorizontal="10dp" android:textSize="12sp"/>
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
