@@ -255,16 +255,24 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                         JSONObject(responseText).optJSONObject("error")?.optString("message")
                     } catch (_: Exception) { null }
                     val safeMessage = message?.takeIf { it.isNotBlank() }?.take(180)
-                    runOnUiThread {
-                        tvRumiReply.text = "Gemini API Error ($code): ${safeMessage ?: "API Key বা মডেল যাচাই করুন"}"
-                    }
+                    val detail = "Gemini API Error ($code): ${safeMessage ?: "API Key বা মডেল যাচাই করুন"}"
                     rumiSpeak(
-                        if (code == 401 || code == 403) "জেমিনি এপিআই কি সঠিক নয় অথবা অনুমতি পাওয়া যায়নি।"
-                        else "জেমিনি সার্ভারে সমস্যা হয়েছে। একটু পরে আবার চেষ্টা করুন।"
+                        when (code) {
+                            400 -> "অনুরোধ বা মডেলের নাম ঠিক নেই। স্ক্রিনে দেখানো ত্রুটি দেখুন।"
+                            401, 403 -> "জেমিনি API Key বা অনুমতির সমস্যা। স্ক্রিনে বিস্তারিত দেখুন।"
+                            404 -> "এই Gemini মডেলটি পাওয়া যায়নি। মডেলের নাম যাচাই করুন।"
+                            429 -> "API ব্যবহারের সীমা শেষ হয়েছে। কিছুক্ষণ পরে চেষ্টা করুন।"
+                            else -> "Gemini API অনুরোধ ব্যর্থ হয়েছে। স্ক্রিনে বিস্তারিত দেখুন।"
+                        }
                     )
+                    runOnUiThread { tvRumiReply.text = detail }
                 }
-            } catch (_: Exception) {
-                rumiSpeak("ইন্টারনেট সংযোগে সমস্যা হয়েছে।")
+            } catch (e: Exception) {
+                val reason = (e.message ?: e.javaClass.simpleName).take(220)
+                runOnUiThread {
+                    tvRumiReply.text = "সংযোগের ত্রুটি: ${e.javaClass.simpleName}: $reason"
+                    tvStatus.text = "অনুরোধ ব্যর্থ—উপরের ত্রুটিটি দেখুন"
+                }
             } finally {
                 conn?.disconnect()
             }
