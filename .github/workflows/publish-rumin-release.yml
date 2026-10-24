@@ -33,5 +33,5 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK#RuminAI-v1.0.3.apk" --clobber
           else
-            gh release create "$TAG" "$APK#RuminAI-v1.0.2.apk" --title "Rumin AI v1.0.3" --notes "Rumin AI v1.0.3: editable Gemini API key and model ID in app settings, improved API error display, and preserved voice/avatar controls."
+            gh release create "$TAG" "$APK#RuminAI-v1.0.3.apk" --title "Rumin AI v1.0.3" --notes "Rumin AI v1.0.3: editable Gemini API key and model ID in app settings, improved API error display, and preserved voice/avatar controls."
           fi
