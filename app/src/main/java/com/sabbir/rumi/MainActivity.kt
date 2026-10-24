@@ -193,7 +193,6 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         val savedKey = prefs.getString("API_KEY", "") ?: ""
         val currentBoxKey = etApiKey.text.toString().replace("\\s".toRegex(), "").trim()
         val apiKey = if (currentBoxKey.isNotEmpty()) currentBoxKey else savedKey
-        val modelName = (prefs.getString("MODEL_NAME", "gemini-2.5-flash") ?: "gemini-2.5-flash").trim().removePrefix("models/")
 
         if (apiKey.isBlank()) {
             rumiSpeak("দয়া করে আপনার জেমিনি এপিআই কি দিন।")
@@ -204,8 +203,9 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         thread {
             var conn: HttpURLConnection? = null
             try {
-                // বর্তমান সচল Gemini Flash মডেল
-                val url = URL("https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent")
+                // মডেল আইডি সেটিংস থেকে আবার পড়ি, যাতে request scope-এ নিশ্চিতভাবে থাকে
+                val selectedModel = (prefs.getString("MODEL_NAME", "gemini-2.5-flash") ?: "gemini-2.5-flash").trim().removePrefix("models/")
+                val url = URL("https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent")
                 conn = (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
                     setRequestProperty("Content-Type", "application/json; charset=UTF-8")
