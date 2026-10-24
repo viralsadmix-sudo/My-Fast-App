@@ -60,7 +60,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
         val prefs = getSharedPreferences("RumiPrefs", Context.MODE_PRIVATE)
         etApiKey.setText(prefs.getString("API_KEY", ""))
-        etModelName.setText(prefs.getString("MODEL_NAME", "gemini-2.5-flash"))
+        val savedModel = prefs.getString("MODEL_NAME", "gemini-3.8-flash") ?: "gemini-3.8-flash"
+        val initialModel = if (savedModel == "gemini-2.5-flash" || savedModel == "models/gemini-2.5-flash") "gemini-3.8-flash" else savedModel.removePrefix("models/")
+        if (initialModel != savedModel) prefs.edit().putString("MODEL_NAME", initialModel).apply()
+        etModelName.setText(initialModel)
         btnSaveKey.setOnClickListener {
             val key = etApiKey.text.toString().replace("\\s".toRegex(), "").trim()
             val model = etModelName.text.toString().trim().removePrefix("models/")
@@ -204,7 +207,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             var conn: HttpURLConnection? = null
             try {
                 // মডেল আইডি সেটিংস থেকে আবার পড়ি, যাতে request scope-এ নিশ্চিতভাবে থাকে
-                val selectedModel = (prefs.getString("MODEL_NAME", "gemini-2.5-flash") ?: "gemini-2.5-flash").trim().removePrefix("models/")
+                val selectedModel = (prefs.getString("MODEL_NAME", "gemini-3.8-flash") ?: "gemini-3.8-flash").trim().removePrefix("models/")
                 val url = URL("https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent")
                 conn = (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
