@@ -173,22 +173,80 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private fun processCommand(raw: String) {
         val command = raw.lowercase(Locale("bn", "BD"))
+        val openWords = listOf("চালাও", "ওপেন", "খোলো", "খুলে দাও", "open")
         if (command.contains("কথা বন্ধ কর") || command.contains("থামো")) { stopContinuousMode(); return }
-        if (command.contains("ফেসবুক") && listOf("চালাও", "ওপেন", "খোলো").any { command.contains(it) }) {
-            rumiSpeak("আমি ফেসবুক খুলছি।")
-            mainHandler.postDelayed({
-                val launch = packageManager.getLaunchIntentForPackage("com.facebook.katana")
-                try { if (launch != null) startActivity(launch) else startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://m.facebook.com"))) } catch (_: Exception) {}
-            }, 900); return
+
+        if (command.contains("ব্যাটারি") || command.contains("চার্জ কত")) {
+            val battery = registerReceiver(null, android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+            val level = battery?.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1) ?: -1
+            val scale = battery?.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1) ?: -1
+            val percent = if (level >= 0 && scale > 0) (level * 100 / scale) else -1
+            val status = battery?.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, -1) ?: -1
+            val charging = status == android.os.BatteryManager.BATTERY_STATUS_CHARGING || status == android.os.BatteryManager.BATTERY_STATUS_FULL
+            if (percent >= 0) rumiSpeak("আপনার ফোনে $percent শতাংশ চার্জ আছে। " + if (charging) "ফোন চার্জ হচ্ছে।" else "ফোন এখন চার্জ হচ্ছে না.")
+            else rumiSpeak("দুঃখিত, ব্যাটারির তথ্য পড়তে পারিনি।")
+            return
         }
-        if (command.contains("ইউটিউব") && listOf("চালাও", "ওপেন", "খোলো").any { command.contains(it) }) {
-            rumiSpeak("আমি ইউটিউব খুলছি।")
+        if (command.contains("অ্যালার্ম") || command.contains("এলার্ম")) {
+            rumiSpeak("অ্যালার্ম সেট করার স্ক্রিন খুলছি।")
             mainHandler.postDelayed({
-                val launch = packageManager.getLaunchIntentForPackage("com.google.android.youtube")
-                try { if (launch != null) startActivity(launch) else startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://m.youtube.com"))) } catch (_: Exception) {}
-            }, 900); return
+                try { startActivity(Intent(android.provider.AlarmClock.ACTION_SET_ALARM).putExtra(android.provider.AlarmClock.EXTRA_MESSAGE, "Rumi AI")) }
+                catch (_: Exception) { rumiSpeak("এই ফোনে অ্যালার্ম অ্যাপ পাওয়া যায়নি।") }
+            }, 650)
+            return
+        }
+        if ((command.contains("টর্চ") || command.contains("ফ্ল্যাশলাইট")) && listOf("চালু", "জ্বালাও", "অন").any { command.contains(it) }) {
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA), 102)
+                rumiSpeak("টর্চ চালাতে ক্যামেরার অনুমতি দিন, তারপর আবার বলুন।")
+            } else toggleTorch(true)
+            return
+        }
+        if ((command.contains("টর্চ") || command.contains("ফ্ল্যাশলাইট")) && listOf("বন্ধ", "নিভাও", "অফ").any { command.contains(it) }) {
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) { rumiSpeak("টর্চ এখন বন্ধ আছে।"); return }
+            toggleTorch(false); return
+        }
+        if (command.contains("হোয়াটসঅ্যাপ") || command.contains("হোয়াটসঅ্যাপ") || command.contains("whatsapp")) {
+            openApp("com.whatsapp", "https://www.whatsapp.com/download/", "আমি হোয়াটসঅ্যাপ খুলছি।"); return
+        }
+        if (command.contains("ফেসবুক") && openWords.any { command.contains(it) }) {
+            openApp("com.facebook.katana", "https://m.facebook.com", "আমি ফেসবুক খুলছি।"); return
+        }
+        if (command.contains("ইউটিউব") && openWords.any { command.contains(it) }) {
+            openApp("com.google.android.youtube", "https://m.youtube.com", "আমি ইউটিউব খুলছি।"); return
+        }
+        if (command.contains("গুগল") && openWords.any { command.contains(it) }) {
+            openApp(null, "https://www.google.com", "আমি গুগল খুলছি।"); return
+        }
+        if (command.contains("হোম স্ক্রিন") || command.contains("হোমে যাও")) {
+            val service = RumiControlService.instance
+            if (service != null) { service.goHome(); rumiSpeak("হোম স্ক্রিনে যাচ্ছি।") }
+            else rumiSpeak("ফোনের সেটিংসে গিয়ে Rumi Control Accessibility চালু করলে হোম স্ক্রিন নিয়ন্ত্রণ করতে পারব।")
+            return
         }
         askRumiAI(raw)
+    }
+
+    private fun openApp(packageName: String?, fallbackUrl: String, spoken: String) {
+        rumiSpeak(spoken)
+        mainHandler.postDelayed({
+            try {
+                val launch = packageName?.let { packageManager.getLaunchIntentForPackage(it) }
+                startActivity(launch ?: Intent(Intent.ACTION_VIEW, Uri.parse(fallbackUrl)))
+            } catch (_: Exception) { runOnUiThread { tvStatus.text = "অ্যাপটি খোলা যায়নি" } }
+        }, 650)
+    }
+
+    private fun toggleTorch(enabled: Boolean) {
+        try {
+            val cameraManager = getSystemService(Context.CAMERA_SERVICE) as android.hardware.camera2.CameraManager
+            val cameraId = cameraManager.cameraIdList.firstOrNull { id ->
+                cameraManager.getCameraCharacteristics(id).get(android.hardware.camera2.CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
+            }
+            if (cameraId == null) { rumiSpeak("এই ফোনে টর্চ পাওয়া যায়নি।"); return }
+            cameraManager.setTorchMode(cameraId, enabled)
+            rumiSpeak(if (enabled) "টর্চ চালু করেছি।" else "টর্চ বন্ধ করেছি।")
+        } catch (_: Exception) { rumiSpeak("টর্চ চালু করা যায়নি। ক্যামেরার অনুমতি এবং অন্য অ্যাপের ক্যামেরা ব্যবহার পরীক্ষা করুন।") }
     }
 
     private fun askRumiAI(userQuestion: String) {
